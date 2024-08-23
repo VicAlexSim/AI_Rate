@@ -20,8 +20,6 @@ export default function Home() {
 
   return (
     <Container maxWidth="100vw">
-      
-
       <Box sx={{ textAlign: "center", my: 4 }}>
         <Typography variant="h2">Welcome to ProfScore AI</Typography>
         <Button
