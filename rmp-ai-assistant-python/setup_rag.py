@@ -1,59 +1,47 @@
 from dotenv import load_dotenv
+
 load_dotenv()
-from pinecone import Pinecone, ServerlessSpec
+from pinecone import Pinecone
 import os
 import json
-import requests
-
-# Initialize Pinecone
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+import google.generativeai as genai
 
 # Load the review data
 data = json.load(open("reviews.json"))
 
+# Gemini API KEy
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# initialize empty array to hold data
 processed_data = []
 
-# Set the correct Gemini API endpoint
-gemini_endpoint = "https://ai.google.dev/api/generate-content#text_gen_text_only_prompt-PYTHON"  # Replace with the actual correct endpoint
-gemini_api_key = os.getenv("GEMINI_API_KEY")
-headers = {
-    "Authorization": f"Bearer {gemini_api_key}",
-    "Content-Type": "application/json"
-}
-
-# Create embeddings for each review using Gemini API
+# Create embeddings for each review
 for review in data["reviews"]:
-    response = requests.post(
-        gemini_endpoint,
-        headers=headers,
-        json={"input": review['review']}
+    result = genai.embed_content(
+        model="models/text-embedding-004",
+        content=review["review"],
+        task_type="retrieval_document",
+        title="Embedding of single string",
     )
-    if response.status_code == 200:
-        try:
-            embedding = response.json().get('embedding')
-            if embedding:
-                processed_data.append(
-                    {
-                        "values": embedding,
-                        "id": review["professor"],
-                        "metadata": {
-                            "review": review["review"],
-                            "subject": review["subject"],
-                            "stars": review["stars"],
-                        }
-                    }
-                )
-        except json.JSONDecodeError:
-            print("Received non-JSON response or empty response.")
-            print(f"Response text: {response.text}")
-    else:
-        print(f"Failed to get embedding for review: {review['review']} - Status Code: {response.status_code}")
-        print(f"Response body: {response.text}")
-
-
+    embeddings = result["embedding"]
+    processed_data.append(
+        {
+            "values": embeddings,
+            "id": review["professor"],
+            "metadata": {
+                "review": review["review"],
+                "subject": review["subject"],
+                "stars": review["stars"],
+            },
+        }
+    )
 
 # Insert the embeddings into the Pinecone index
-index = pc.Index("rag")
+from pinecone import Pinecone
+
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+
+index = pc.Index("rag2")
 if processed_data:
     upsert_response = index.upsert(
         vectors=processed_data,
