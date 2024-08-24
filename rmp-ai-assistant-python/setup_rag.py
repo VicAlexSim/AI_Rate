@@ -14,7 +14,7 @@ data = json.load(open("reviews.json"))
 processed_data = []
 
 # Set the correct Gemini API endpoint
-gemini_endpoint = "https://aiplatform.googleapis.com"  # Replace with the actual correct endpoint
+gemini_endpoint = "https://ai.google.dev/api/generate-content#text_gen_text_only_prompt-PYTHON"  # Replace with the actual correct endpoint
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 headers = {
     "Authorization": f"Bearer {gemini_api_key}",
@@ -29,22 +29,27 @@ for review in data["reviews"]:
         json={"input": review['review']}
     )
     if response.status_code == 200:
-        embedding = response.json().get('embedding')
-        if embedding:
-            processed_data.append(
-                {
-                    "values": embedding,
-                    "id": review["professor"],
-                    "metadata": {
-                        "review": review["review"],
-                        "subject": review["subject"],
-                        "stars": review["stars"],
+        try:
+            embedding = response.json().get('embedding')
+            if embedding:
+                processed_data.append(
+                    {
+                        "values": embedding,
+                        "id": review["professor"],
+                        "metadata": {
+                            "review": review["review"],
+                            "subject": review["subject"],
+                            "stars": review["stars"],
+                        }
                     }
-                }
-            )
+                )
+        except json.JSONDecodeError:
+            print("Received non-JSON response or empty response.")
+            print(f"Response text: {response.text}")
     else:
         print(f"Failed to get embedding for review: {review['review']} - Status Code: {response.status_code}")
         print(f"Response body: {response.text}")
+
 
 
 # Insert the embeddings into the Pinecone index
